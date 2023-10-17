@@ -17,7 +17,15 @@ def main():
     conn, addr = server_socket.accept()
     with conn:
         data = conn.recv(SOCKET_BUFSIZE)
-        conn.send(b"HTTP/1.1 200 OK\r\n\r\n")
+        print(f"{data=}")
+
+        http_msg_contents = data.decode().split("\r\n")
+        msg_start_line = http_msg_contents[0]
+        request_type, path, protocol = msg_start_line.split(" ")
+        if path == "/":
+            conn.send(b"HTTP/1.1 200 OK\r\n\r\n")
+        else:
+            conn.send(b"HTTP/1.1 404 Not Found\r\n\r\n")
 
 
 
