@@ -1,6 +1,25 @@
 import socket
 
 
+status_msg = {
+    200: "OK",
+    404: "Not Found"
+}
+
+def build_http_response(status_code: int, text: str):
+    response = (
+        f"HTTP/1.1 {status_code} {status_msg[status_code]}\r\n\r\n"
+        f"Content-type: text/plain\r\n\r\n"
+        f"Content-Length: {len(text)}\r\n\r\n"
+        f"\r\n\r\n"
+        f"{text}"
+    )
+
+    return response
+
+
+
+
 def main():
     # You can use print statements as follows for debugging, they'll be visible when running tests.
     print("Logs from your program will appear here!")
@@ -22,10 +41,12 @@ def main():
         http_msg_contents = data.decode().split("\r\n")
         msg_start_line = http_msg_contents[0]
         request_type, path, protocol = msg_start_line.split(" ")
-        if path == "/":
-            conn.send(b"HTTP/1.1 200 OK\r\n\r\n")
-        else:
-            conn.send(b"HTTP/1.1 404 Not Found\r\n\r\n")
+
+
+        response = build_http_response(200, path.split("/")[-1])
+        print(f"{response=}")
+
+        conn.send(response.encode())
 
 
 
