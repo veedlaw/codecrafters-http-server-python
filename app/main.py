@@ -21,8 +21,7 @@ def main():
         data = conn.recv(SOCKET_BUFSIZE)
         if data == b'':
             break
-
-    conn.send(b"HTTP/1.1 200 OK\r\n\r\n")
+        conn.send(b"HTTP/1.1 200 OK\r\n\r\n")
 
 
 
