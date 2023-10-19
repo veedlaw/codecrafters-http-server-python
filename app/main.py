@@ -1,5 +1,17 @@
+import sys
 import socket
 import threading
+from pathlib import Path
+from enum import Enum
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--directory", type=Path, dest="directory")
+args = parser.parse_args()
+
+class ContentType(Enum):
+    PLAINTEXT = "text/plain"
+    OCTET = "application/octet-stream"
 
 
 status_msg = {
@@ -7,11 +19,12 @@ status_msg = {
     404: "Not Found"
 }
 
-def build_http_response(status_code: int, text: str) -> str:
+
+def build_http_response(status_code: int, content_type: ContentType, text: str) -> str:
     content_length = len(text)
     response = (
         f"HTTP/1.1 {status_code} {status_msg[status_code]}\r\n"
-        f"Content-Type: text/plain\r\n"
+        f"Content-Type: {content_type.value}\r\n"
         f"Content-Length: {content_length}\r\n"
         f"\n"
         f"{text}\r\n\r\n"
@@ -20,10 +33,14 @@ def build_http_response(status_code: int, text: str) -> str:
     return response
 
 
-
-def parse_user_agent(user_agent_line):
+def parse_user_agent(user_agent_line) -> str:
     _request_header, user_agent = user_agent_line.split(" ")
     return user_agent
+
+
+def parse_filename(request_target) -> Path:
+    filename = request_target[len("/files/"):]
+    return Path(filename)
 
 
 def handle_request(client_conn, address, SOCKET_BUFSIZE = 4096):
@@ -35,20 +52,27 @@ def handle_request(client_conn, address, SOCKET_BUFSIZE = 4096):
         msg_start_line = http_msg_contents[0]
 
         http_method, request_target, http_version = msg_start_line.split(" ")
-        http_response = ""
+        http_response = "HTTP/1.1 404 Not Found\r\n\r\n"  # Default value
 
         if request_target == "/":
             http_response = "HTTP/1.1 200 OK\r\n\r\n"
         elif request_target.startswith("/echo/"):
-            http_response = build_http_response(200, request_target[len("/echo/"):])
+            http_response = build_http_response(200,
+                                                ContentType.PLAINTEXT,
+                                                request_target[len("/echo/"):])
         elif request_target == "/user-agent":
             for line in http_msg_contents:
                 if line.startswith("User-Agent"):
                     user_agent = parse_user_agent(line)
-                    http_response = build_http_response(200, user_agent)
+                    http_response = build_http_response(200, ContentType.PLAINTEXT, user_agent)
                     break
-        else:
-            http_response = "HTTP/1.1 404 Not Found\r\n\r\n"
+        elif request_target.startswith("/files/"):
+            filepath = parse_filename(request_target)
+            fullpath = args.directory / filepath
+            if fullpath.exists():
+                data = fullpath.read_text()
+                http_response = build_http_response(200, ContentType.OCTET, data)
+
 
         client_conn.send(http_response.encode())
 
